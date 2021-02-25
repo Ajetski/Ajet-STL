@@ -85,19 +85,11 @@ namespace ajet
 		constexpr size_type size() const noexcept { return max_size(); }
 		constexpr size_type max_size() const noexcept { return N; }
 
-		void fill(const T &value)
-		{
-			for (reference elem : values)
-			{
-				elem = value;
-			}
-		}
+		void fill(const T &value) { for (reference elem : values) elem = value; }
 
-		void swap(array &other) noexcept(std::is_nothrow_swappable_v<T>)
-		{
-			for (size_type i = 0; i < N; ++i) {
+		void swap(array &other) noexcept(std::is_nothrow_swappable_v<T>) {
+			for (size_type i = 0; i < N; ++i)
 				std::swap(this->at(i), other.at(i));
-			}
 		}
 	};
 
