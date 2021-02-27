@@ -17,6 +17,7 @@
 #define LIST_H
 
 #include <memory>
+#include <iostream>
 
 namespace ajet {
     using std::allocator, std::allocator_traits, std::size_t,
@@ -26,11 +27,17 @@ namespace ajet {
     struct list_node {
         T data;
         shared_ptr<list_node<T>> next;
-        list_node(T data) : data{ data }, next{ nullptr } {}
-        list_node(const list_node& rhs) : data { rhs.data }, next{ rhs.next } {}
+        shared_ptr<list_node<T>> previous;
+        list_node(T data) : data{ data }, next{ nullptr }, previous{ nullptr } {}
+        list_node(T data, shared_ptr<list_node<T>> next) :
+            data{ data }, next{ next }, previous{ nullptr } {}
+        list_node(T data, shared_ptr<list_node<T>> next, shared_ptr<list_node<T>> previous) :
+            data{ data }, next{ next }, previous{ previous } {}
+        list_node(const list_node& rhs) : data{ rhs.data }, next{ rhs.next }, previous{ rhs.previous } {}
         list_node operator=(const list_node& rhs) {
             data = rhs.data;
             next = rhs.next;
+            previous = rhs.previous;
         }
     };
 
@@ -46,8 +53,20 @@ namespace ajet {
         }
 
         constexpr list_iterator& operator++(int) {
+            list_iterator copy = *this;
             ptr = ptr->next.get();
+            return copy;
+        }
+
+        constexpr list_iterator& operator--() {
+            ptr = ptr->previous.get();
             return *this;
+        }
+
+        constexpr list_iterator& operator--(int) {
+            list_iterator copy = *this;
+            ptr = ptr->previous.get();
+            return copy;
         }
 
         constexpr T& operator*() {
@@ -65,6 +84,10 @@ namespace ajet {
             return !(this->ptr == rhs.ptr);
         }
 
+        //for_degugging
+        list_node<T>* getNodePtr() {
+            return ptr;
+        }
     private:
         list_node<T>* ptr;
 
@@ -98,16 +121,23 @@ namespace ajet {
         list(list&& x);
         list(const list&, const Allocator&);
         list(list&&, const Allocator&);*/
+
         list(initializer_list<T> vals, const Allocator & = Allocator()) { assign(vals); }
-        /*~list();
-        list& operator=(const list& x);
+
+        ~list() {
+            while (!empty()) {
+                pop_front();
+            }
+        }
+
+        /*list& operator=(const list& x);
         list& operator=(list&& x)
             noexcept(allocator_traits<Allocator>::is_always_equal::value);
         list& operator=(initializer_list<T>);
         template <class InputIterator>
         void assign(InputIterator first, InputIterator last);*/
 
-        void assign(size_type n, const T& t) {
+        void assign(size_type n, const_reference t) {
             auto iter = begin();
             for (int i = 0; i < n; ++iter, ++i) {}
             *iter = t;
@@ -118,66 +148,91 @@ namespace ajet {
                 push_back(val);
         }
 
-        //allocator_type get_allocator() const noexcept;
+        allocator_type get_allocator() const noexcept { return allocator; }
 
         // iterators:
         iterator               begin() noexcept { return iterator(head.get()); }
         //const_iterator         begin() const noexcept;
         iterator               end() noexcept { return iterator(tail.get()->next.get()); }
-        /*const_iterator         end() const noexcept;
-        reverse_iterator       rbegin() noexcept;
-        const_reverse_iterator rbegin() const noexcept;
-        reverse_iterator       rend() noexcept;
-        const_reverse_iterator rend() const noexcept;
+        //const_iterator         end() const noexcept;
+        //reverse_iterator       rbegin() noexcept {}
+        //const_reverse_iterator rbegin() const noexcept;
+        //reverse_iterator       rend() noexcept;
+        //const_reverse_iterator rend() const noexcept;
 
-        const_iterator         cbegin() const noexcept;
-        const_iterator         cend() const noexcept;
-        const_reverse_iterator crbegin() const noexcept;
-        const_reverse_iterator crend() const noexcept;*/
+        //const_iterator         cbegin() const noexcept;
+        //const_iterator         cend() const noexcept;
+        //const_reverse_iterator crbegin() const noexcept;
+        //const_reverse_iterator crend() const noexcept;*/
 
         // [list.capacity], capacity
-        /*bool      empty() const noexcept;
-        size_type size() const noexcept;
-        size_type max_size() const noexcept;
-        void      resize(size_type sz);
+        bool      empty() const noexcept {
+            return _size == 0;
+        }
+
+        size_type size() const noexcept {
+            return _size;
+        }
+
+        size_type max_size() const noexcept {
+            return INT_MAX;
+        }
+
+        /*void      resize(size_type sz);
         void      resize(size_type sz, const T& c);*/
 
         // element access:
-        /*reference       front();
-        const_reference front() const;
-        reference       back();
-        const_reference back() const;*/
+        reference       front() {
+            return head.get()->data;
+        }
+
+        const_reference front() const {
+            return head.get()->data;
+        }
+
+        reference       back() {
+            return tail.get()->data;
+        }
+
+        const_reference back() const {
+            return tail.get()->data;
+        }
 
         // [list.modifiers], modifiers
         /*template <class... Args> reference emplace_front(Args&&... args);
-        template <class... Args> reference emplace_back(Args&&... args);
-        void push_front(const T& x);
-        void push_front(T&& x);
-        void pop_front();*/
+        template <class... Args> reference emplace_back(Args&&... args);*/
 
-        void push_back(const T& x) {
-            if (head == nullptr) {
-                head = std::move(shared_ptr<Node>{ make_shared<Node>(x) });
-                tail = head;
+        void push_front(const_reference x) { _push_front(x); }
+
+        void push_front(T&& x) { _push_front(x); }
+
+        void pop_front() {
+            _size -= 1;
+            if (_size == 0) {
+                head = nullptr;
+                tail = nullptr;
+                return;
             }
-            else {
-                tail->next = std::move(shared_ptr<Node>{ make_shared<Node>(x) });
-                tail = tail->next;
-            }
+
+            head = std::move(head.get()->next);
+            head.get()->previous = nullptr;
+            
         }
 
-        void push_back(T&& x) {
-            if (head == nullptr) {
-                head = std::move(shared_ptr<Node>{ make_shared<Node>(x) });
-                tail = head;
-            }
-            else {
-                tail->next = std::move(shared_ptr<Node>{ make_shared<Node>(x) });
-                tail = tail->next;
-            }
-        }
+        void push_back(const_reference x) { _push_back(x); }
 
-        //void pop_back();
+        void push_back(T&& x) { _push_back(x); }
+
+        void pop_back() {
+            _size -= 1;
+            if (_size == 0) {
+                head = nullptr;
+                tail = nullptr;
+                return;
+            }
+            tail = std::move(tail.get()->previous);
+            tail.get()->next = nullptr;
+        }
 
         //template <class... Args> iterator emplace(const_iterator position, Args&&... args);
         //iterator insert(const_iterator position, const T& x);
@@ -225,6 +280,29 @@ namespace ajet {
         using Node = list_node<value_type>;
         shared_ptr<Node> head{ nullptr };
         shared_ptr<Node> tail{ nullptr };
+        size_type _size{};
+        allocator_type allocator;
+
+        void _push_front(const_reference x) {
+            auto temp = std::move(head);
+            head = std::move(shared_ptr<Node>{ make_shared<Node>(x, temp) });
+            temp.get()->previous = head;
+            _size += 1;
+        }
+
+        void _push_back(const_reference x) {
+            _size += 1;
+            if (head == nullptr) {
+                head = std::move(shared_ptr<Node>{ make_shared<Node>(x) });
+                tail = head;
+            }
+            else {
+                tail->next = std::move(shared_ptr<Node>{ make_shared<Node>(x) });
+                auto temp = tail;
+                tail = tail.get()->next;
+                tail.get()->previous = std::move(temp);
+            }
+        }
 	};
 
     /*template<class InputIterator,
