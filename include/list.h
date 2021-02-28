@@ -116,9 +116,21 @@ namespace ajet {
         explicit list(size_type n, const Allocator & = Allocator());
         list(size_type n, const T& value, const Allocator & = Allocator());
         template <class InputIterator>
-        list(InputIterator first, InputIterator last, const Allocator & = Allocator());
-        list(const list& x);
-        list(list&& x);
+        list(InputIterator first, InputIterator last, const Allocator & = Allocator());*/
+
+        list(const list& x) {
+            for (auto iter = x.begin(); iter != x.end(); ++iter) {
+                push_back(*iter);
+            }
+        }
+
+        list(list&& x) {
+            for (auto iter = x.begin(); iter != x.end(); ++iter) {
+                push_back(*iter);
+            }
+        }
+
+        /*
         list(const list&, const Allocator&);
         list(list&&, const Allocator&);*/
 
@@ -152,9 +164,9 @@ namespace ajet {
 
         // iterators:
         iterator               begin() noexcept { return iterator(head.get()); }
-        //const_iterator         begin() const noexcept;
+        const_iterator         begin() const noexcept { return iterator(head.get()); }
         iterator               end() noexcept { return iterator(tail.get()->next.get()); }
-        //const_iterator         end() const noexcept;
+        const_iterator         end() const noexcept { return iterator(tail.get()->next.get()); }
         //reverse_iterator       rbegin() noexcept {}
         //const_reverse_iterator rbegin() const noexcept;
         //reverse_iterator       rend() noexcept;
@@ -284,9 +296,8 @@ namespace ajet {
         allocator_type allocator;
 
         void _push_front(const_reference x) {
-            auto temp = std::move(head);
-            head = std::move(shared_ptr<Node>{ make_shared<Node>(x, temp) });
-            temp.get()->previous = head;
+            head = std::move(shared_ptr<Node>{ make_shared<Node>(x, std::move(head)) });
+            head.get()->next.get()->previous = head;
             _size += 1;
         }
 
@@ -297,13 +308,11 @@ namespace ajet {
                 tail = head;
             }
             else {
-                tail->next = std::move(shared_ptr<Node>{ make_shared<Node>(x) });
-                auto temp = tail;
-                tail = tail.get()->next;
-                tail.get()->previous = std::move(temp);
+                tail = std::move(shared_ptr<Node>{ make_shared<Node>(x, nullptr, std::move(tail)) });
+                tail.get()->previous.get()->next = tail;
             }
         }
-	};
+    };
 
     /*template<class InputIterator,
         class Allocator = allocator<typename std::iterator_traits<InputIterator>::value_type>>
